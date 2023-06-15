@@ -1,12 +1,15 @@
 import { expect } from "chai";
-import { Contract, Signer } from "ethers";
+import { BigNumber, Contract, Signer } from "ethers";
 import { deployments, ethers } from "hardhat";
 
-import { NFTToken, NFTToken__factory } from "../typechain";
+import { MockERC20, NFTToken, NFTToken__factory } from "../typechain";
+
+import deployedMockERC20 from "./fixtures/mockERC20";
 
 describe("NFTToken", function () {
-    let accounts: Signer[];
-    let nftTokenContract: NFTToken;
+    let accounts: Signer[]
+    let nftTokenContract: NFTToken
+    let mockERC20: MockERC20
 
     beforeEach(async function () {
         accounts = await ethers.getSigners();
@@ -17,6 +20,9 @@ describe("NFTToken", function () {
         )) as NFTToken__factory;
 
         nftTokenContract = await nftTokenFactory.deploy();
+
+        mockERC20 = await deployedMockERC20()
+
     });
 
     describe("Deployment", function () {
@@ -52,6 +58,31 @@ describe("NFTToken", function () {
 
             expect(eventArgs["to"]).to.equal(user);
             expect(eventArgs["tokenId"]).to.equal(0);
+        });
+    });
+
+    describe.only("TBA", function () {
+        const URI = "http://uri.com/nfttoken.json";
+
+        it("Should transfer ERC20 to created TBA", async function () {
+
+            const amountToTransfer = ethers.utils.parseEther("1")
+            const user = await accounts[0].getAddress();
+
+            const tx = await (
+                await nftTokenContract.safeMint(user, URI)
+            ).wait();
+
+            const eventArgs = tx.events?.find(
+                (event) => event.event === "NFTMinted"
+            )!!.args!!;
+
+            const tba = eventArgs["tba"]
+
+            await mockERC20.transfer(tba, amountToTransfer)
+            const erc20Balance = await mockERC20.balanceOf(tba)
+            
+            expect(erc20Balance).to.equal(amountToTransfer)
         });
     });
 });
